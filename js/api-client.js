@@ -6,6 +6,7 @@ const DEMO_DEVICES=[
 const DEMO_INCIDENTS=[{incident_id:'inc-1',imei_original:'869584072141925',tipo:'Daño',nombre:'LUZ PATRICIA GUARDERAS',modelo:'Y29S',valor:629,estado_proceso:'Pendiente'},{incident_id:'inc-2',imei_original:'862902089790913',tipo:'Pérdida',nombre:'COLABORADOR DEMO',modelo:'V60 LITE',valor:1430,estado_proceso:'Descontado'}];
 async function api(action,payload={}){
   if(window.LDU_CONFIG.DEMO_MODE||!window.LDU_CONFIG.API_BASE_URL)return demoApi(action,payload);
+  if(action==='listDevices'||action==='listIncidents')return apiJsonp(action,payload);
   const params=new URLSearchParams({action,...payload});
   const controller=new AbortController();
   const timer=setTimeout(()=>controller.abort(),15000);
@@ -17,5 +18,18 @@ async function api(action,payload={}){
     if(error.name==='AbortError')throw new Error('La API no respondió en 15 segundos.');
     throw new Error(`No se pudo conectar con Apps Script: ${error.message}`);
   }finally{clearTimeout(timer)}
+}
+function apiJsonp(action,payload={}){
+  return new Promise((resolve,reject)=>{
+    const callbackName=`lduCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+    const script=document.createElement('script');
+    const params=new URLSearchParams({action,callback:callbackName,...payload});
+    const timer=setTimeout(()=>{cleanup();reject(new Error('Apps Script no respondió en 15 segundos.'))},15000);
+    function cleanup(){clearTimeout(timer);delete window[callbackName];script.remove()}
+    window[callbackName]=data=>{cleanup();resolve(data)};
+    script.onerror=()=>{cleanup();reject(new Error('No se pudo cargar la respuesta de Apps Script.'))};
+    script.src=`${window.LDU_CONFIG.API_BASE_URL}?${params.toString()}`;
+    document.head.appendChild(script);
+  });
 }
 function demoApi(action,payload){if(action==='listDevices'){const q=(payload.query||'').toLowerCase(),e=payload.estado||'';return Promise.resolve({status:'ok',data:DEMO_DEVICES.filter(d=>(!q||Object.values(d).join(' ').toLowerCase().includes(q))&&(!e||d.estado===e))})}if(action==='listIncidents')return Promise.resolve({status:'ok',data:DEMO_INCIDENTS});if(action==='createIncident'){const incident={...payload.incident,incident_id:'demo-'+Date.now(),estado_proceso:payload.incident.estado_proceso||'Pendiente'};DEMO_INCIDENTS.unshift(incident);return Promise.resolve({status:'ok',data:incident})}return Promise.resolve({status:'ok',data:null})}
