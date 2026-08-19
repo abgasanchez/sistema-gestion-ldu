@@ -1,5 +1,5 @@
 window.LDU_CONFIG = {
-  API_BASE_URL: '',
-  DEMO_MODE: true,
+  API_BASE_URL: 'https://script.google.com/macros/s/AKfycbwkOmkfAv0__DgkwRUn-sGN-1B5jYmPA0QshqPeKZjAciS_S8Cv4eSArltsJzORzCKK3w/exec',
+  DEMO_MODE: false,
   APP_NAME: 'Sistema de Gestión LDU'
 };
