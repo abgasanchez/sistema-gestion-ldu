@@ -9,13 +9,13 @@ async function api(action,payload={}){
   if(action==='listDevices'||action==='listIncidents')return apiJsonp(action,payload);
   const params=new URLSearchParams({action,...payload});
   const controller=new AbortController();
-  const timer=setTimeout(()=>controller.abort(),15000);
+  const timer=setTimeout(()=>controller.abort(),45000);
   try{
     const response=await fetch(`${window.LDU_CONFIG.API_BASE_URL}?${params.toString()}`,{method:'GET',redirect:'follow',signal:controller.signal,cache:'no-store'});
     if(!response.ok)throw new Error(`API HTTP ${response.status}`);
     return await response.json();
   }catch(error){
-    if(error.name==='AbortError')throw new Error('La API no respondió en 15 segundos.');
+    if(error.name==='AbortError')throw new Error('La API no respondió en 45 segundos.');
     throw new Error(`No se pudo conectar con Apps Script: ${error.message}`);
   }finally{clearTimeout(timer)}
 }
