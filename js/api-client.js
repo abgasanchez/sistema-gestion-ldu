@@ -33,3 +33,21 @@ function apiJsonp(action,payload={}){
   });
 }
 function demoApi(action,payload){if(action==='listDevices'){const q=(payload.query||'').toLowerCase(),e=payload.estado||'';return Promise.resolve({status:'ok',data:DEMO_DEVICES.filter(d=>(!q||Object.values(d).join(' ').toLowerCase().includes(q))&&(!e||d.estado===e))})}if(action==='listIncidents')return Promise.resolve({status:'ok',data:DEMO_INCIDENTS});if(action==='createIncident'){const incident={...payload.incident,incident_id:'demo-'+Date.now(),estado_proceso:payload.incident.estado_proceso||'Pendiente'};DEMO_INCIDENTS.unshift(incident);return Promise.resolve({status:'ok',data:incident})}return Promise.resolve({status:'ok',data:null})}
+
+// Cliente estable para GitHub Pages + Apps Script.
+// Las lecturas usan JSONP para evitar el bloqueo CORS del redireccionamiento de Apps Script.
+const LDU_READ_ACTIONS = new Set(['health','listDevices','listIncidents','listStock','listHistory','lookupImei']);
+const lduApiLegacy = api;
+api = async function(action,payload={}){
+  if(window.LDU_CONFIG.DEMO_MODE||!window.LDU_CONFIG.API_BASE_URL)return demoApi(action,payload);
+  if(LDU_READ_ACTIONS.has(action)) return apiJsonp(action,payload);
+  const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),30000);
+  try{
+    const response=await fetch(window.LDU_CONFIG.API_BASE_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...payload}),redirect:'follow',signal:controller.signal,cache:'no-store'});
+    if(!response.ok)throw new Error(`API HTTP ${response.status}`);
+    return await response.json();
+  }catch(error){
+    if(error.name==='AbortError')throw new Error('La API no respondió en 30 segundos.');
+    throw new Error(`No se pudo conectar con Apps Script: ${error.message}`);
+  }finally{clearTimeout(timer)}
+};

@@ -94,3 +94,35 @@ async function importFile(file,module,card){const message=card.querySelector('.i
 function importHeaderKey(header){const key=String(header||'').normalize('NFD').replace(/[\u0300-\u036f]/g,'').toLowerCase().replace(/[^a-z0-9]/g,'');const aliases={imei:'imei',imeioriginal:'imei_original',imeinuevo:'imei_nuevo',marca:'marca',modelo:'modelo','nlinea':'n_linea','numerolinea':'n_linea',responsable:'responsable',nombre:'responsable',nombrecompleto:'responsable',dni:'dni',cargo:'cargo',tipo:'tipo',supervisor:'supervisor',zona:'zona',cuenta:'cuenta',departamento:'departamento',region:'region',city:'city',ciudad:'city',canal:'canal',tienda:'tienda',tipouso:'tipo_uso',tipodeuso:'tipo_uso',fechaasignacion:'fecha_asignacion',fecha:'fecha_incidente',fechadelincidente:'fecha_incidente',monto:'monto',montos:'monto',valors:'valor',estado:'estado',estadoinventario:'estado_inventario',eninventario:'en_inventario',observaciones:'observaciones',docautorizacion:'doc_autorizacion',modalidad:'modalidad',estadoproceso:'estado_proceso'};return aliases[key]||key}
 function normalizeImportedRows(rows){return rows.map(row=>Object.keys(row).reduce((out,key)=>{out[importHeaderKey(key)]=row[key];return out},{}))}
 async function importFile(file,module,card){const message=card.querySelector('.import-message');message.textContent='Leyendo y detectando columnas...';try{const buffer=await file.arrayBuffer(),book=XLSX.read(buffer,{type:'array'}),sheet=book.Sheets[book.SheetNames[0]],rows=normalizeImportedRows(XLSX.utils.sheet_to_json(sheet,{defval:''}));if(!rows.length)throw new Error('El archivo no contiene registros.');const action=module===1?'importIncidents':module===2?'importStock':'importDevices',result=await api(action,{rows,userId:'importacion'});if(result.status!=='ok')throw new Error(result.message||'No se pudo importar.');message.textContent=`Importados: ${result.data?.imported||0}. Actualizados: ${result.data?.updated||0}. Rechazados: ${result.data?.rejected||0}.`;}catch(error){message.textContent='Error: '+error.message}}
+
+// Correcciones finales: errores visibles, vista previa y acciones de importación.
+const lduRenderGlobalSearchBase = renderGlobalSearch;
+async function renderGlobalSearch(){
+  try { await lduRenderGlobalSearchBase(); }
+  catch(error){ document.querySelector('#app').innerHTML=`<section class="section"><div class="section-head"><h2>❌ No se pudo cargar Buscador</h2></div><div class="error">${esc(error.message)}</div><div class="section-body"><button class="btn" onclick="renderGlobalSearch()">Reintentar</button></div></section>`; }
+}
+const lduRenderHistoryBase = renderHistory;
+async function renderHistory(){
+  document.querySelector('#app').innerHTML='<div class="loading">⏳ Cargando historial...</div>';
+  try { await lduRenderHistoryBase(); }
+  catch(error){ document.querySelector('#app').innerHTML=`<section class="section"><div class="section-head"><h2>❌ No se pudo cargar Historial IMEI</h2></div><div class="error">${esc(error.message)}</div><div class="section-body"><button class="btn" onclick="renderHistory()">Reintentar</button></div></section>`; }
+}
+const lduOpenIncidentFormStable = openIncidentForm;
+function openIncidentForm(){try{lduOpenIncidentFormStable()}catch(error){alert('No se pudo abrir Nueva Incidencia: '+error.message)}}
+
+function renderImport(){
+  document.querySelector('#app').innerHTML=`<section class="section"><div class="section-head"><h2>📥 Importar información</h2><span class="muted">CSV, XLSX o XLS · primero revisa la vista previa</span></div><div class="import-grid">${['Inventario LDU','Incidencias','Stock Vivo','Stock Mod. A','Stock Mod. B'].map((title,i)=>`<article class="import-card"><h3>${title}</h3><p>El sistema detecta y normaliza las columnas.</p><input type="file" accept=".csv,.xlsx,.xls" data-import-file="${i}"><button class="btn" data-import-preview="${i}" disabled>👁️ Revisar vista previa</button><div class="import-message" data-import-message="${i}"></div></article>`).join('')}</div></section>`;
+  document.querySelectorAll('[data-import-file]').forEach(input=>input.addEventListener('change',()=>{const card=input.closest('.import-card');card.querySelector('[data-import-preview]').disabled=!input.files.length;card.querySelector('[data-import-preview]').onclick=()=>previewImportFile(input.files[0],Number(input.dataset.importFile),card)}));
+}
+async function previewImportFile(file,module,card){
+  const message=card.querySelector('.import-message');
+  try{
+    message.textContent='Leyendo columnas...';
+    const buffer=await file.arrayBuffer(),book=XLSX.read(buffer,{type:'array'}),sheet=book.Sheets[book.SheetNames[0]],rows=normalizeImportedRows(XLSX.utils.sheet_to_json(sheet,{defval:''}));
+    if(!rows.length)throw new Error('El archivo no contiene registros.');
+    const columns=Object.keys(rows[0]);
+    const drawer=document.createElement('div');drawer.className='drawer';drawer.innerHTML=`<aside class="drawer-card import-preview-card"><div class="section-head"><h2>📋 Vista previa — ${esc(file.name)}</h2><button class="btn secondary" id="close-preview">✕</button></div><p>Registros detectados: <strong>${rows.length}</strong></p><div class="table-wrap"><table><thead><tr>${columns.map(c=>`<th>${esc(c)}</th>`).join('')}</tr></thead><tbody>${rows.slice(0,5).map(row=>`<tr>${columns.map(c=>`<td>${esc(row[c]??'')}</td>`).join('')}</tr>`).join('')}</tbody></table></div><div class="form-actions"><button class="btn secondary" id="cancel-preview">Cancelar</button><button class="btn" id="confirm-import">📥 Importar masivo</button></div><div id="preview-message"></div></aside>`;document.body.appendChild(drawer);
+    const close=()=>drawer.remove();drawer.querySelector('#close-preview').onclick=close;drawer.querySelector('#cancel-preview').onclick=close;drawer.querySelector('#confirm-import').onclick=async()=>{const out=drawer.querySelector('#preview-message'),button=drawer.querySelector('#confirm-import');button.disabled=true;out.textContent='Importando...';try{const action=module===1?'importIncidents':module===2?'importStock':'importDevices',result=await api(action,{rows,userId:'importacion'});if(result.status!=='ok')throw new Error(result.message||'No se pudo importar.');message.textContent=`Importados: ${result.data?.imported||0}. Actualizados: ${result.data?.updated||0}. Rechazados: ${result.data?.rejected||0}.`;close();if(state.view==='dashboard')renderDashboard()}catch(error){out.textContent='Error: '+error.message;button.disabled=false}};
+    message.textContent='Vista previa lista.';
+  }catch(error){message.textContent='Error: '+error.message}
+}
