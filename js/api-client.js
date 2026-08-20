@@ -23,7 +23,9 @@ function apiJsonp(action,payload={}){
   return new Promise((resolve,reject)=>{
     const callbackName=`lduCallback_${Date.now()}_${Math.random().toString(36).slice(2)}`;
     const script=document.createElement('script');
-    const params=new URLSearchParams({action,callback:callbackName,...payload});
+    const serialized={action,callback:callbackName};
+    Object.keys(payload||{}).forEach(key=>{const value=payload[key];serialized[key]=value&&typeof value==='object'?JSON.stringify(value):String(value??'')});
+    const params=new URLSearchParams(serialized);
     const timer=setTimeout(()=>{cleanup();reject(new Error('Apps Script no respondió en 15 segundos.'))},15000);
     function cleanup(){clearTimeout(timer);delete window[callbackName];script.remove()}
     window[callbackName]=data=>{cleanup();resolve(data)};
@@ -36,11 +38,11 @@ function demoApi(action,payload){if(action==='listDevices'){const q=(payload.que
 
 // Cliente estable para GitHub Pages + Apps Script.
 // Las lecturas usan JSONP para evitar el bloqueo CORS del redireccionamiento de Apps Script.
-const LDU_READ_ACTIONS = new Set(['health','listDevices','listIncidents','listStock','listHistory','lookupImei']);
+const LDU_JSONP_ACTIONS = new Set(['health','listDevices','listIncidents','listStock','listHistory','lookupImei','setup','deleteDevice','listDeleted','listNotifications','sendNotification','listUsers','createUser','updateUser','deleteUser','createDevice','updateDevice','createIncident','importDeviceRow','importStockRow','importIncidentRow']);
 const lduApiLegacy = api;
 api = async function(action,payload={}){
   if(window.LDU_CONFIG.DEMO_MODE||!window.LDU_CONFIG.API_BASE_URL)return demoApi(action,payload);
-  if(LDU_READ_ACTIONS.has(action)) return apiJsonp(action,payload);
+  if(LDU_JSONP_ACTIONS.has(action)) return apiJsonp(action,payload);
   const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),30000);
   try{
     const response=await fetch(window.LDU_CONFIG.API_BASE_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...payload}),redirect:'follow',signal:controller.signal,cache:'no-store'});
