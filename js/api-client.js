@@ -26,7 +26,7 @@ function apiJsonp(action,payload={}){
     const serialized={action,callback:callbackName};
     Object.keys(payload||{}).forEach(key=>{const value=payload[key];serialized[key]=value&&typeof value==='object'?JSON.stringify(value):String(value??'')});
     const params=new URLSearchParams(serialized);
-    const timer=setTimeout(()=>{cleanup();reject(new Error('Apps Script no respondió en 15 segundos.'))},15000);
+    const timer=setTimeout(()=>{cleanup();reject(new Error('Apps Script no respondió en 45 segundos.'))},45000);
     function cleanup(){clearTimeout(timer);delete window[callbackName];script.remove()}
     window[callbackName]=data=>{cleanup();resolve(data)};
     script.onerror=()=>{cleanup();reject(new Error('No se pudo cargar la respuesta de Apps Script.'))};
@@ -38,18 +38,18 @@ function demoApi(action,payload){if(action==='listDevices'){const q=(payload.que
 
 // Cliente estable para GitHub Pages + Apps Script.
 // Las lecturas usan JSONP para evitar el bloqueo CORS del redireccionamiento de Apps Script.
-const LDU_JSONP_ACTIONS = new Set(['health','listDevices','listIncidents','listStock','listHistory','lookupImei','setup','deleteDevice','listDeleted','listNotifications','sendNotification','listUsers','createUser','updateUser','deleteUser','createDevice','updateDevice','createIncident','importDeviceRow','importStockRow','importIncidentRow']);
+const LDU_JSONP_ACTIONS = new Set(['health','listDevices','listIncidents','listStock','listHistory','lookupImei','setup','deleteDevice','listDeleted','listNotifications','sendNotification','listUsers','createUser','updateUser','deleteUser','createDevice','updateDevice','createIncident','importDeviceRow','importStockRow','importIncidentRow','importRows']);
 const lduApiLegacy = api;
 api = async function(action,payload={}){
   if(window.LDU_CONFIG.DEMO_MODE||!window.LDU_CONFIG.API_BASE_URL)return demoApi(action,payload);
   if(LDU_JSONP_ACTIONS.has(action)) return apiJsonp(action,payload);
-  const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),30000);
+  const controller=new AbortController(), timer=setTimeout(()=>controller.abort(),45000);
   try{
     const response=await fetch(window.LDU_CONFIG.API_BASE_URL,{method:'POST',headers:{'Content-Type':'text/plain;charset=utf-8'},body:JSON.stringify({action,...payload}),redirect:'follow',signal:controller.signal,cache:'no-store'});
     if(!response.ok)throw new Error(`API HTTP ${response.status}`);
     return await response.json();
   }catch(error){
-    if(error.name==='AbortError')throw new Error('La API no respondió en 30 segundos.');
+    if(error.name==='AbortError')throw new Error('La API no respondió en 45 segundos.');
     throw new Error(`No se pudo conectar con Apps Script: ${error.message}`);
   }finally{clearTimeout(timer)}
 };
