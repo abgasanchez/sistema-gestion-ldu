@@ -1,0 +1,9 @@
+/* Separación visual consistente en todos los módulos. */
+.module-section .module-filters,.section-body+.table-wrap,.module-filters+.table-wrap{margin-top:18px}
+.module-section .table-wrap,.section .table-wrap{border:1px solid #c7d5e8;border-radius:10px;background:#fff}
+.section table{border-collapse:separate;border-spacing:0}
+.section table th,.section table td{border-right:1px solid #d7e2f0;border-bottom:1px solid #d7e2f0}
+.section table th:last-child,.section table td:last-child{border-right:0}
+.section table tbody tr:nth-child(even){background:#f8fbff}
+.section table tbody tr:hover{background:#eef5ff}
+.notification-results{margin-top:14px}
