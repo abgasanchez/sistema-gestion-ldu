@@ -27,22 +27,7 @@
   window.stockSummary = window.stockSummary = function () { var groups = [['✅ INVENTARIO LDU', 'INVENTARIO'], ['🟦 MODELOS ANTIGUOS A', 'A'], ['🟧 MODELOS ANTIGUOS B', 'B']], fields = ['modelo', 'stock', 'activos', 'almacen', 'danados', 'reparacion', 'perdidos', 'baja', 'pendiente_devolucion', 'devueltos', 'monto', 'faltante']; return '<section class="section stock-summary"><div class="section-head"><h2>📦 RESUMEN DE STOCK POR MODELO</h2><button class="btn secondary" onclick="renderDashboard()">🔄 ACTUALIZAR</button></div>' + groups.map(function (g) { return '<div class="stock-group"><div class="stock-group-head"><h3>' + g[0] + '</h3></div>' + table(summary(g[1]), fields) + '</div>'; }).join('') + '</section>'; };
   function profile() { var raw = sessionStorage.getItem('ldu-session') || localStorage.getItem('lduUser') || localStorage.getItem('currentUser') || '{}', user = {}; try { user = JSON.parse(raw); } catch (_) {} user = user.data || user; var name = user.name || user.nombre || user.username || user.usuario || 'USUARIO'; var role = user.role || user.rol || 'USUARIO'; var footer = document.querySelector('.sidebar-footer'); if (!footer) return; footer.innerHTML = '<div class="sidebar-profile"><b>👤 ' + safe(String(name).toUpperCase()) + '</b><small>' + safe(String(role).toUpperCase()) + '</small><button class="btn secondary sidebar-logout" id="ldu-logout">↪ CERRAR SESIÓN</button></div><div>VERSIÓN MODULAR 1.0</div>'; document.querySelector('#ldu-logout').onclick = async function () { try { if (user.token) await api('logout', { token: user.token }); } catch (_) {} sessionStorage.removeItem('ldu-session'); sessionStorage.removeItem('ldu-authenticated'); localStorage.removeItem('lduUser'); localStorage.removeItem('currentUser'); location.reload(); }; }
   document.addEventListener('DOMContentLoaded', profile); setTimeout(profile, 300); setTimeout(profile, 1200);
-  var style = document.createElement('style'); style.textContent = '.total-row td{background:#0b2357!important;color:#fff!important;font-weight:800}.stock-summary tbody tr:not(.total-row) td{background:#fff!important;color:inherit!important;font-weight:inherit}.module-filters,.toolbar,.dashboard-toolbar,.map-filters{background:transparent;border-radius:0;padding:0}.module-filters .input,.module-filters .select,.toolbar .input,.toolbar .select{background:#fff}.sidebar-logout{display:block;width:100%;margin-top:7px;padding:4px 8px;font-size:11px}.sidebar-profile{border-top:1px solid #ffffff33;padding:12px 0 8px;margin-bottom:6px}.sidebar-profile b,.sidebar-profile small{display:block}.sidebar-profile small{color:#c7d2fe;margin-top:3px}'; document.head.appendChild(style);
-}());
-(function () {
-  /* Apps Script/JSONP tiene límites de URL: divide automáticamente lotes grandes. */
-  var apiWithReconcile = window.api;
-  window.api = async function (action, payload) {
-    if (action !== 'importRows' || !payload || !Array.isArray(payload.rows) || payload.rows.length <= 25) return apiWithReconcile(action, payload);
-    var total = payload.rows.length, aggregate = { status: 'ok', data: { processed: total, imported: 0, inserted: 0, updated: 0, rejectedRows: [], errorCount: 0 } };
-    for (var start = 0; start < total; start += 25) {
-      var part = Object.assign({}, payload, { rows: payload.rows.slice(start, start + 25), batchId: String(payload.batchId || 'imp89') + '-' + start });
-      var response = await apiWithReconcile(action, part), data = response && response.data || {};
-      if (!response || response.status !== 'ok') return response;
-      aggregate.data.imported += Number(data.imported || data.inserted || 0); aggregate.data.inserted += Number(data.inserted || data.imported || 0); aggregate.data.updated += Number(data.updated || 0); aggregate.data.errorCount += Number(data.errorCount || 0); aggregate.data.rejectedRows = aggregate.data.rejectedRows.concat(data.rejectedRows || []);
-    }
-    return aggregate;
-  };
+  var style = document.createElement('style'); style.textContent = '.total-row td{background:#0b2357!important;color:#fff!important;font-weight:800}.total-row td .badge{color:#fff}.badge.purple{background:#ede9fe;color:#6d28d9}.sidebar-profile{border-top:1px solid #ffffff33;padding:12px 0 8px;margin-bottom:6px}.sidebar-profile b,.sidebar-profile small{display:block}.sidebar-profile small{color:#c7d2fe;margin-top:3px}h1,h2,h3,h4,th,.btn,.select{ text-transform:uppercase }'; document.head.appendChild(style);
 }());
 (function () {
   /* La etiqueta IMEI NO VIVO solo se aplica a IMEI del sistema ausentes en Stock. */
@@ -66,19 +51,6 @@
   };
   var labels = function () { document.querySelectorAll('option').forEach(function (o) { if (o.value === 'NO VIVO' || o.textContent.trim() === 'NO VIVO') { o.value = 'IMEI NO VIVO'; o.textContent = 'IMEI NO VIVO'; } }); };
   document.addEventListener('DOMContentLoaded', labels); setTimeout(labels, 500); setTimeout(labels, 1500); if (window.MutationObserver) new MutationObserver(labels).observe(document.body, { childList: true, subtree: true });
-}());
-(function () {
-  var baseStockView = window.renderStock;
-  if (typeof baseStockView !== 'function') return;
-  window.renderStock = renderStock = async function () {
-    await baseStockView();
-    var host = document.querySelector('.stock-screen'), tabs = host && host.querySelector('.stock-tabs');
-    if (!host || !tabs || host.querySelector('.v89-stock-cards')) return;
-    var stock = state.stock || [], devices = state.devices || [], stockIds = new Set(stock.map(function (r) { return String(r.imei || '').replace(/\D/g, ''); }).filter(Boolean)), deviceIds = new Set(devices.map(function (r) { return String(r.imei || '').replace(/\D/g, ''); }).filter(Boolean));
-    var parseMoney = function (v) { if (typeof v === 'number') return isFinite(v) ? v : 0; var s = String(v == null ? '' : v).replace(/[^0-9,.-]/g, ''); if (s.indexOf(',') >= 0 && s.indexOf('.') >= 0) s = s.lastIndexOf(',') > s.lastIndexOf('.') ? s.replace(/\./g, '').replace(',', '.') : s.replace(/,/g, ''); else if (s.indexOf(',') >= 0) s = s.replace(',', '.'); var n = Number(s); return isFinite(n) ? n : 0; };
-    var value = stock.reduce(function (sum, r) { return sum + parseMoney(r.monto == null ? r.valor : r.monto); }, 0);
-    tabs.insertAdjacentHTML('afterend', '<div class="cards compact v89-stock-cards">' + card('📦 TOTAL STOCK', stockIds.size) + card('✅ EN INVENTARIO', [...stockIds].filter(function (x) { return deviceIds.has(x); }).length) + card('⚠️ NO EN INVENTARIO', [...stockIds].filter(function (x) { return !deviceIds.has(x); }).length) + card('📵 IMEI NO VIVO', [...deviceIds].filter(function (x) { return !stockIds.has(x); }).length) + card('💰 VALOR TOTAL', money(value)) + '</div>');
-  };
 }());
 (function () {
   /* Un lote grande reduce los viajes a Apps Script; el backend usa IMEI como clave idempotente. */
