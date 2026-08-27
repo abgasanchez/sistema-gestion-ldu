@@ -1,2 +1,0 @@
-/* v95 - reaplica el perfil definitivo después de las capas históricas. */
-(function () { 'use strict'; setTimeout(function () { if (typeof window.profile === 'function') window.profile(); var button = document.querySelector('#ldu-logout-v94'); if (button) button.onclick = function () { sessionStorage.removeItem('ldu-session'); sessionStorage.removeItem('ldu-authenticated'); localStorage.removeItem('lduUser'); localStorage.removeItem('currentUser'); location.reload(); }; }, 1600); }());
