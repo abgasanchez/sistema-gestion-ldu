@@ -1,4 +1,0 @@
-function esc(value){return String(value??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#039;'}[c]))}
-// Estados con color consistente en todos los módulos.
-function badge(state){const value=String(state||'Sin estado'),key=value.normalize('NFD').replace(/[\u0300-\u036f]/g,'').toUpperCase().replace(/\s+/g,' ').trim();const map={ACTIVO:'green',ALMACEN:'blue',DANADO:'red','EN REPARACION':'purple',PERDIDO:'orange',BAJA:'black','PENDIENTE DEVOLUCION':'orange',DEVUELTO:'blue','SIN RESPONSABLE':'gray','EN INVENTARIO':'green','NO EN INVENTARIO':'red','IMEI NO VIVO':'purple','SI':'green','NO':'red','NO VIVO':'purple'};return `<span class="badge ${map[key]||'gray'}">${esc(value)}</span>`}
-function metric(label,value){return `<article class="metric"><strong>${esc(value)}</strong><span>${esc(label)}</span></article>`}
